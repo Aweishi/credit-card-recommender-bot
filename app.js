@@ -42,12 +42,23 @@ const welcomeMessage = `🎉 歡迎使用信用卡推薦機器人！
 
 // Webhook 端點
 app.post('/webhook', (req, res) => {
+  console.log('收到Line Webhook請求:', req.body);
+  
+  // 檢查是否有events
+  if (!req.body.events || req.body.events.length === 0) {
+    console.log('沒有收到events，可能是Line的驗證請求');
+    return res.status(200).json({ message: 'OK' });
+  }
+
   Promise
     .all(req.body.events.map(handleEvent))
-    .then((result) => res.json(result))
+    .then((result) => {
+      console.log('處理完成，回覆結果:', result);
+      res.status(200).json(result);
+    })
     .catch((err) => {
-      console.error(err);
-      res.status(500).end();
+      console.error('處理事件時發生錯誤:', err);
+      res.status(500).json({ error: err.message });
     });
 });
 
@@ -120,16 +131,37 @@ app.get('/', (req, res) => {
   res.json({
     status: 'OK',
     message: '信用卡推薦機器人運行中',
+    timestamp: new Date().toISOString(),
+    webhook: '/webhook',
+    health: '/api/health'
+  });
+});
+
+// 測試端點
+app.get('/test', (req, res) => {
+  res.json({
+    message: '測試成功！機器人正在運行',
     timestamp: new Date().toISOString()
   });
 });
 
-// 啟動伺服器
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 信用卡推薦機器人已啟動在端口 ${PORT}`);
-  console.log(`📱 Webhook URL: https://your-domain.com/webhook`);
-  console.log(`💡 請確保已設定正確的環境變數`);
+// 健康檢查端點 - 用於Vercel
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: '信用卡推薦機器人運行中',
+    timestamp: new Date().toISOString()
+  });
 });
+
+// 本地開發時啟動伺服器
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🚀 信用卡推薦機器人已啟動在端口 ${PORT}`);
+    console.log(`📱 Webhook URL: https://your-domain.com/webhook`);
+    console.log(`💡 請確保已設定正確的環境變數`);
+  });
+}
 
 module.exports = app; 

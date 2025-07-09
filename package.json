@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Line機器人 - 信用卡推薦系統",
   "main": "app.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js"
