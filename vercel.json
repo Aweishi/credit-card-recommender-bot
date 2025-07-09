@@ -7,6 +7,10 @@
   },
   "routes": [
     {
+      "src": "/api/simple-webhook",
+      "dest": "/api/simple-webhook.js"
+    },
+    {
       "src": "/api/webhook",
       "dest": "/api/webhook.js"
     },
