@@ -112,16 +112,13 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  console.log('收到Line Webhook請求:', req.body);
+  console.log('=== WEBHOOK 收到請求 ===');
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
+  console.log('Body:', req.body);
+  console.log('========================');
   
   try {
-    // 驗證Line簽名
-    const signature = req.headers['x-line-signature'];
-    if (!signature) {
-      console.log('缺少Line簽名');
-      return res.status(400).json({ error: 'Missing signature' });
-    }
-
     // 檢查是否有events
     if (!req.body.events || req.body.events.length === 0) {
       console.log('沒有收到events，可能是Line的驗證請求');
