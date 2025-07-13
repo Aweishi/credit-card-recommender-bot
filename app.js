@@ -3,6 +3,7 @@ const line = require('@line/bot-sdk');
 require('dotenv').config();
 
 const CardRecommender = require('./services/cardRecommender');
+const LLMService = require('./services/llmService');
 
 const app = express();
 
@@ -14,13 +15,14 @@ const config = {
 
 const client = new line.Client(config);
 const recommender = new CardRecommender();
+const llmService = new LLMService();
 
 // 中間件
 app.use('/api/webhook', line.middleware(config));
 app.use(express.json());
 
 // 歡迎訊息
-const welcomeMessage = `🎉 歡迎使用信用卡推薦機器人！
+const welcomeMessage = `🎉 歡迎使用智能信用卡推薦機器人！
 
 💳 我可以幫您找到最適合的信用卡，請告訴我：
 
@@ -31,6 +33,11 @@ const welcomeMessage = `🎉 歡迎使用信用卡推薦機器人！
 • 娛樂 (電影、娛樂消費)
 • 無年費
 • 高回饋
+
+🤖 AI 智能功能：
+• 直接輸入問題，我會用 AI 為您分析
+• 輸入 "AI 問題" 來使用純 AI 回覆
+• 例如：「AI 推薦適合學生的信用卡」
 
 💡 您也可以直接輸入關鍵字，例如：
 • "我想要旅遊卡"
@@ -71,29 +78,52 @@ async function handleEvent(event) {
   const userMessage = event.message.text;
   let replyMessage = '';
 
-  // 處理特殊指令
-  if (userMessage === '幫助' || userMessage === 'help' || userMessage === '?' || userMessage === '？') {
-    replyMessage = welcomeMessage;
-  } else if (userMessage === '所有卡片' || userMessage === '全部') {
-    const allCards = recommender.getAllCards();
-    replyMessage = recommender.formatRecommendation(allCards);
-  } else if (userMessage.includes('詳細') || userMessage.includes('詳情')) {
-    // 提取卡片編號
-    const cardNumber = userMessage.match(/\d+/);
-    if (cardNumber) {
-      const card = recommender.getCardById(parseInt(cardNumber[0]));
-      if (card) {
-        replyMessage = formatCardDetail(card);
+  try {
+    // 處理特殊指令
+    if (userMessage === '幫助' || userMessage === 'help' || userMessage === '?' || userMessage === '？') {
+      replyMessage = welcomeMessage;
+    } else if (userMessage === '所有卡片' || userMessage === '全部') {
+      const allCards = recommender.getAllCards();
+      replyMessage = recommender.formatRecommendation(allCards);
+    } else if (userMessage.includes('詳細') || userMessage.includes('詳情')) {
+      // 提取卡片編號
+      const cardNumber = userMessage.match(/\d+/);
+      if (cardNumber) {
+        const card = recommender.getCardById(parseInt(cardNumber[0]));
+        if (card) {
+          replyMessage = formatCardDetail(card);
+        } else {
+          replyMessage = "找不到該編號的信用卡，請重新選擇。";
+        }
       } else {
-        replyMessage = "找不到該編號的信用卡，請重新選擇。";
+        replyMessage = "請輸入「詳細 1」來查看第1張卡的詳細資訊。";
+      }
+    } else if (userMessage.startsWith('AI ') || userMessage.startsWith('ai ')) {
+      // 使用 AI 回覆（當用戶輸入 "AI 問題" 時）
+      const aiQuestion = userMessage.substring(3).trim();
+      if (aiQuestion) {
+        replyMessage = await llmService.getResponse(aiQuestion);
+      } else {
+        replyMessage = "請在 'AI' 後面輸入您的問題，例如：AI 推薦旅遊信用卡";
       }
     } else {
-      replyMessage = "請輸入「詳細 1」來查看第1張卡的詳細資訊。";
+      // 智能回覆：先嘗試 LLM，如果失敗則使用傳統推薦
+      try {
+        // 準備信用卡資料作為上下文
+        const allCards = recommender.getAllCards();
+        const context = `可用的信用卡資料：${allCards.map(card => `${card.name}(${card.bank}) - ${card.category} - ${card.cashbackRate}%回饋`).join(', ')}`;
+        
+        replyMessage = await llmService.getResponse(userMessage, context);
+      } catch (error) {
+        console.log('LLM 回覆失敗，使用傳統推薦:', error.message);
+        // 如果 LLM 失敗，使用傳統推薦邏輯
+        const recommendations = recommender.recommendByKeyword(userMessage);
+        replyMessage = recommender.formatRecommendation(recommendations);
+      }
     }
-  } else {
-    // 一般推薦邏輯
-    const recommendations = recommender.recommendByKeyword(userMessage);
-    replyMessage = recommender.formatRecommendation(recommendations);
+  } catch (error) {
+    console.error('處理訊息時發生錯誤:', error);
+    replyMessage = "抱歉，處理您的訊息時發生錯誤。請稍後再試。";
   }
 
   // 發送回覆
