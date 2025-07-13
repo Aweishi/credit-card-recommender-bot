@@ -16,7 +16,7 @@ const client = new line.Client(config);
 const recommender = new CardRecommender();
 
 // 中間件
-app.use('/webhook', line.middleware(config));
+app.use('/api/webhook', line.middleware(config));
 app.use(express.json());
 
 // 歡迎訊息
@@ -41,7 +41,7 @@ const welcomeMessage = `🎉 歡迎使用信用卡推薦機器人！
 🎯 讓我為您找到最優惠的選擇！`;
 
 // Webhook 端點
-app.post('/webhook', (req, res) => {
+app.post('/api/webhook', (req, res) => {
   console.log('收到Line Webhook請求:', req.body);
   
   // 檢查是否有events
@@ -132,7 +132,7 @@ app.get('/', (req, res) => {
     status: 'OK',
     message: '信用卡推薦機器人運行中',
     timestamp: new Date().toISOString(),
-    webhook: '/webhook',
+    webhook: '/api/webhook',
     health: '/api/health'
   });
 });
@@ -159,7 +159,7 @@ if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`🚀 信用卡推薦機器人已啟動在端口 ${PORT}`);
-    console.log(`📱 Webhook URL: https://your-domain.com/webhook`);
+    console.log(`📱 Webhook URL: https://your-domain.com/api/webhook`);
     console.log(`💡 請確保已設定正確的環境變數`);
   });
 }
